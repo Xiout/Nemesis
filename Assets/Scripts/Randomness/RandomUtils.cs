@@ -82,6 +82,12 @@ namespace Randomness
             return index;
         }
 
+        public static bool GetRandomBool()
+        {
+            int randomValue = Random.Range(0, 2);
+            return (randomValue == 0);
+        }
+
         public static List<T> Shuffle<T>(List<T> list)
         {
             for (int i = 0; i < list.Count - 1; i++)

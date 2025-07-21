@@ -280,5 +280,10 @@ namespace Board.Rooms
         {
             return $"{_roomFunction.Name} ({ObjectCount})";
         }
+
+        public string GetRoomFunctionName()
+        {
+            return _roomFunction.Name;
+        }
     }
 }

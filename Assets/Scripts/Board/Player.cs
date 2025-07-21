@@ -5,6 +5,7 @@ using UnityEngine;
 using Board.Rooms;
 using Board.Corridors;
 using Unity.VisualScripting;
+using System;
 
 namespace Board
 {
@@ -19,12 +20,17 @@ namespace Board
 
         public Room CurrentRoom { get; set; }
         private bool _isSlimed;
+        private bool _hasSentSignal;
+
+        private Weapon _weapon;
 
         private Material _defaultMaterial;
         private void Awake()
         {
             _defaultMaterial = GetComponent<MeshRenderer>().material;
             _isSlimed = false;
+            _hasSentSignal = false;
+            _weapon = new Weapon("TestWeapon", 5, true);
         }
 
         public void PerformMoveAction(Room room)
@@ -38,11 +44,16 @@ namespace Board
             room.PlacePlayerInRoom(this);
 
             //Explore room
-            
             if(CurrentRoom.RoomType == RoomTypeEnum.Unknown)
             {
                 CurrentRoom.DiscoverRoomTile();
                 isNoiseRollNeeded = DiscoverExplorationTokenTile(origin);
+            }
+
+            //Slime Room
+            if(CurrentRoom.GetRoomFunctionName() == "Slime")
+            {
+                SetSlime(true);
             }
 
             //Noise Roll
@@ -253,6 +264,11 @@ namespace Board
             _isSlimed = slime;
         }
 
+        public void SendSignal()
+        {
+            _hasSentSignal = true;
+        }
+
         internal void VisualizePlayer()
         {
             gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().SelectedMaterial });
@@ -276,6 +292,17 @@ namespace Board
         public void ResetTurnActionCount()
         {
             ActionCountTurn = 0;
+        }
+
+        public void ReloadWeaponFull()
+        {
+            _weapon.AmmoCount = _weapon.AmmoCapacity;
+        }
+
+        public void ReloadWeapon(int ammo)
+        {
+            _weapon.AmmoCount += ammo;
+            Math.Min(_weapon.AmmoCount, _weapon.AmmoCapacity);
         }
     }
 }

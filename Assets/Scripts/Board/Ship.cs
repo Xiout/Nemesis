@@ -8,6 +8,7 @@ using Randomness;
 using UnityEngine.UI;
 using TMPro;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Board
 {
@@ -22,6 +23,13 @@ namespace Board
         internal List<Corridor> Corridors;
         internal List<Player> Players;
         internal List<Intruder> Intruders;
+
+        internal bool[] _engineStatus;
+        private DirectionEnum[] DirectionsArray;
+        private int _indexDirection;
+        private int _roundTrack;
+        private bool _isSelfDesctructOn;
+        private int? _selfDestructTrack;
 
         public float CorridorThickness;
         public GameObject TechnicalCorridorMarkerPrefab;
@@ -69,6 +77,8 @@ namespace Board
             Corridors = new List<Corridor>();
             Players = new List<Player>();
             Intruders = new List<Intruder>();
+            DirectionsArray = new DirectionEnum[]{ DirectionEnum.Earth, DirectionEnum.Mars, DirectionEnum.Venus, DirectionEnum.DeepSpace };
+            _engineStatus = new bool[3];
 
             _isMoveActionSelected = false;
             _isShootActionSelected = false;
@@ -102,6 +112,19 @@ namespace Board
 
             //Generate Corridors between adjacent rooms
             GenerateCorridors();
+
+            //Set-up Ship Direction and Engine Status
+            DirectionsArray = RandomUtils.DrawWithoutReplacement(DirectionsArray.ToList(), DirectionsArray.Length).ToArray();
+            _indexDirection = 2;
+            for(int i=0; i< _engineStatus.Length; ++i)
+            {
+                _engineStatus[i] = RandomUtils.GetRandomBool();
+            }
+
+            //First Round Management
+            _isSelfDesctructOn = false;
+            _selfDestructTrack = null;
+            _roundTrack = 16; //TODO double check if 16 or 15
 
             //Set-up player
             InitPlayers();
@@ -371,6 +394,30 @@ namespace Board
             }
 
             Debug.Log(debugString);
+        }
+        
+        public void FlipEngine(int index)
+        {
+            _engineStatus[index] = !_engineStatus[index];
+        }
+
+        public bool TurnSelfDestructOnOff(bool? isOn)
+        {
+            if(isOn == null)
+            {
+                _isSelfDesctructOn = !_isSelfDesctructOn;
+            }
+            else
+            {
+                _isSelfDesctructOn = (bool)isOn;
+            }
+
+            if(_isSelfDesctructOn)
+            {
+                _selfDestructTrack = 6;
+            }
+
+            return _isSelfDesctructOn;
         }
 
         public Intruder ResolveIntruderEncounter()
