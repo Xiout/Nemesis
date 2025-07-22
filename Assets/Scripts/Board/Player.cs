@@ -4,7 +4,8 @@ using System.Linq;
 using UnityEngine;
 using Board.Rooms;
 using Board.Corridors;
-using Unity.VisualScripting;
+using TMPro;
+using NUnit.Framework.Constraints;
 
 namespace Board
 {
@@ -20,16 +21,45 @@ namespace Board
         public Room CurrentRoom { get; set; }
         private bool _isSlimed;
 
+        internal bool IsInfected;
+        private int _lightWoundCount;
+        private List<SeriousWoundEnum> _seriousWounds;
+        private List<bool> _contaminationCards;
+        public bool IsDead {  get; private set; }
+
+        private static TextMeshProUGUI _healthStatLabel;
+
         private Material _defaultMaterial;
-        private void Awake()
+        void Awake()
         {
             _defaultMaterial = GetComponent<MeshRenderer>().material;
             _isSlimed = false;
+            IsDead = false;
+            IsInfected = false;
+            _seriousWounds = new List<SeriousWoundEnum>();
+            _contaminationCards = new List<bool>();
+            _lightWoundCount = 0;
+        }
+
+        private void Start()
+        {
+            _healthStatLabel = GameObject.Find("DebugHealthStatLabel")?.GetComponent<TextMeshProUGUI>();
+            UpdateHealthStatCurrentPlayerDebug();
         }
 
         public void PerformMoveAction(Room room)
         {
             ActionCountTurn++;
+
+            if (IsInCombat())
+            {
+                //Perform Intruder's attacks
+                for(int i= 0; i<CurrentRoom.Intruders.Count(); ++i)
+                {
+                    CurrentRoom.Intruders[i].PerformIntruderAttack(this);
+                }
+            }
+
             bool isNoiseRollNeeded = room.IsRoomEmpty();
 
             //Move
@@ -65,6 +95,7 @@ namespace Board
             if(!withWeapon)
             {
                 //TODO Take Contamination Card
+                TakeContaminationCard();
             }
 
             switch (rollResult)
@@ -108,7 +139,7 @@ namespace Board
             {
                 if (!withWeapon)
                 {
-                    //Implement Serious Wound upon combat failure
+                    TakeSeriousDamage();
                 }
             }
 
@@ -210,7 +241,6 @@ namespace Board
                     Ship.GetInstance().CurrentPlayer.SetSlime(true);
                     break;
                 case ExplorationTokenEnum.Door:
-                    //Implement Door Mechanics
                     var corridor = CurrentRoom.Corridors.Values.ToList().Find(c => (c.Room1 == CurrentRoom && (c as RegularCorridor)?.Room2 == origin) || (c.Room1 == origin && (c as RegularCorridor)?.Room2 == CurrentRoom));
                     if (corridor)
                     {
@@ -248,9 +278,71 @@ namespace Board
             return true;
         }
 
+        public bool TakeLightDamage(int damage)
+        {
+            Debug.Log($"Take {damage} light damages");
+            if (_seriousWounds.Count>=3)
+            {
+                Debug.Log($"Player {PlayerOrder} has exceed the maximum damage");
+                Death();
+                return true;
+            }
+
+            _lightWoundCount += damage;
+            if(_lightWoundCount >= 3)
+            {
+                TakeSeriousDamage();
+                _lightWoundCount = _lightWoundCount % 3;
+            }
+
+            UpdateHealthStatCurrentPlayerDebug();
+            return false;
+        }
+
+        public void TakeContaminationCard()
+        {
+            bool card = EventAndIntruderAttackManager.DrawContaminationCard();
+            Debug.Log($"Take Contamination Card : {card}");
+            _contaminationCards.Add(card);
+
+            UpdateHealthStatCurrentPlayerDebug();
+        }
+
+        public int SeriousWoundCount()
+        {
+            return _seriousWounds.Count;
+        }
+
+        public bool TakeSeriousDamage()
+        {
+            if (_seriousWounds.Count >= 3)
+            {
+                Debug.Log($"Player {PlayerOrder} has exceed the maximum damage");
+                Death();
+                return true;
+            }
+            var card = EventAndIntruderAttackManager.DrawSeriousWoundCard();
+            Debug.Log($"Serious Wound : {card}");
+           _seriousWounds.Add(card);
+            
+            UpdateHealthStatCurrentPlayerDebug();
+            return false;
+        }
+
+        public void Death()
+        {
+            Debug.Log($"Player {PlayerOrder} ({Role}) died)");
+            IsDead = true;
+            gameObject.SetActive(false);
+            //Todo : Spawn character corpse
+            Ship.GetInstance().NextPlayer();
+        }
+
         public void SetSlime(bool slime)
         {
             _isSlimed = slime;
+
+            UpdateHealthStatCurrentPlayerDebug();
         }
 
         internal void VisualizePlayer()
@@ -276,6 +368,37 @@ namespace Board
         public void ResetTurnActionCount()
         {
             ActionCountTurn = 0;
+        }
+
+        private string GetHealthStat()
+        {
+
+            string seriousWoundsString = "";
+            for (int i = 0; i < _seriousWounds.Count; ++i)
+                seriousWoundsString += _seriousWounds[i] + ",";
+
+            if (string.IsNullOrEmpty(seriousWoundsString))
+            {
+                seriousWoundsString = "None";
+            }
+
+            return $"Player {PlayerOrder} ({Role})\n" +
+                   $"Slimed : {_isSlimed}\n" +
+                   $"Infected : {IsInfected}\n" +
+                   $"Contamination : {_contaminationCards.Count}\n" +
+                   $"Light Wounds : {_lightWoundCount}\n" +
+                   $"Serious Wound : "+ seriousWoundsString;
+        }
+
+        public static void UpdateHealthStatCurrentPlayerDebug()
+        {
+            var player = Ship.GetInstance().CurrentPlayer;
+            if (_healthStatLabel == null)
+            {
+                return;
+            }
+
+            _healthStatLabel.text = player.GetHealthStat();
         }
     }
 }

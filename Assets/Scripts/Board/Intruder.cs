@@ -130,6 +130,51 @@ public class Intruder : MonoBehaviour
         }
     }
 
+    public void PerformIntruderAttack(Player player)
+    {
+        if(IntruderType == IntruderTypeEnum.Larva)
+        {
+            player.IsInfected = true;
+            player.TakeContaminationCard();
+            CurrentRoom.RemoveIntruderFromRoom(this);
+
+            Ship.GetInstance().Intruders.Remove(this);
+
+            GameObject.Destroy(gameObject);
+            return;
+        }
+        else
+        {
+            var card = EventAndIntruderAttackManager.DrawIntruderAttackCard();
+
+            if (!card.PerformingIntruders.Contains(IntruderType))
+            {
+                Debug.Log("Missed");
+                return;
+            }
+
+            if(card.SeriousWoundDeathCondition != null)
+            {
+                if(player.SeriousWoundCount() >= (int)card.SeriousWoundCount)
+                {
+                    Debug.Log($"Player {player.PlayerOrder} has {card.SeriousWoundCount} or more serious wound, He does not survive.");
+                    player.Death();
+                }
+            }
+
+            if (card.Contamination)
+            {
+                player.TakeContaminationCard();
+            }
+
+            player.TakeLightDamage(card.LightWoundCount);
+            for(int i=0; i<card.SeriousWoundCount; ++i)
+            {
+                player.TakeSeriousDamage();
+            }
+        }
+    }
+
     internal void ResetMaterial()
     {
         gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { _defaultMaterial });
@@ -143,7 +188,7 @@ public class Intruder : MonoBehaviour
     private void PerformIntruderDeath()
     {
         //Add intruder carcass
-        CurrentRoom.Intruders.Remove(this);
+        CurrentRoom.RemoveIntruderFromRoom(this);
         Ship.GetInstance().Intruders.Remove(this);
 
         GameObject.Destroy(gameObject);
