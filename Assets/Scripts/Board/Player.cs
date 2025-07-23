@@ -22,7 +22,7 @@ namespace Board
         private bool _isSlimed;
         private bool _hasSentSignal;
 
-        private Weapon _weapon;
+        public Weapon Weapon;
 
         private Material _defaultMaterial;
         private void Awake()
@@ -30,7 +30,7 @@ namespace Board
             _defaultMaterial = GetComponent<MeshRenderer>().material;
             _isSlimed = false;
             _hasSentSignal = false;
-            _weapon = new Weapon("TestWeapon", 5, true);
+            Weapon = new Weapon("TestWeapon", 5, true);
         }
 
         public void PerformMoveAction(Room room)
@@ -77,39 +77,43 @@ namespace Board
             {
                 //TODO Take Contamination Card
             }
-
-            switch (rollResult)
+            else
             {
-                case CombatRollEnum.Blank:
-                    break;
-                case CombatRollEnum.Creeper:
-                    if(intruder.IntruderType == IntruderTypeEnum.Creeper || intruder.IntruderType == IntruderTypeEnum.Larva) 
-                    {
-                        intruder.DealDamage(1);
-                        hasHit = true;
-                    }
-                    break;
-                case CombatRollEnum.Adult:
-                    if (intruder.IntruderType == IntruderTypeEnum.Adult ||
-                        intruder.IntruderType == IntruderTypeEnum.Creeper || 
-                        intruder.IntruderType == IntruderTypeEnum.Larva)
-                    {
-                        intruder.DealDamage(1);
-                        hasHit = true;
-                    }
-                    break;
-                case CombatRollEnum.Shot:
-                    intruder.DealDamage(1);
-                    hasHit = true;
-                    break;
-                case CombatRollEnum.DoubleShot:
-                    if(withWeapon)
-                        intruder.DealDamage(2);
-                    else
-                        intruder.DealDamage(1);
-                    hasHit = true;
-                    break;
+                --Weapon.AmmoCount;
             }
+
+                switch (rollResult)
+                {
+                    case CombatRollEnum.Blank:
+                        break;
+                    case CombatRollEnum.Creeper:
+                        if (intruder.IntruderType == IntruderTypeEnum.Creeper || intruder.IntruderType == IntruderTypeEnum.Larva)
+                        {
+                            intruder.DealDamage(1);
+                            hasHit = true;
+                        }
+                        break;
+                    case CombatRollEnum.Adult:
+                        if (intruder.IntruderType == IntruderTypeEnum.Adult ||
+                            intruder.IntruderType == IntruderTypeEnum.Creeper ||
+                            intruder.IntruderType == IntruderTypeEnum.Larva)
+                        {
+                            intruder.DealDamage(1);
+                            hasHit = true;
+                        }
+                        break;
+                    case CombatRollEnum.Shot:
+                        intruder.DealDamage(1);
+                        hasHit = true;
+                        break;
+                    case CombatRollEnum.DoubleShot:
+                        if (withWeapon)
+                            intruder.DealDamage(2);
+                        else
+                            intruder.DealDamage(1);
+                        hasHit = true;
+                        break;
+                }
 
             if (hasHit)
             {
@@ -296,13 +300,13 @@ namespace Board
 
         public void ReloadWeaponFull()
         {
-            _weapon.AmmoCount = _weapon.AmmoCapacity;
+            Weapon.AmmoCount = Weapon.AmmoCapacity;
         }
 
         public void ReloadWeapon(int ammo)
         {
-            _weapon.AmmoCount += ammo;
-            Math.Min(_weapon.AmmoCount, _weapon.AmmoCapacity);
+            Weapon.AmmoCount += ammo;
+            Math.Min(Weapon.AmmoCount, Weapon.AmmoCapacity);
         }
     }
 }

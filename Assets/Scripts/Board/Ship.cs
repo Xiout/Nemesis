@@ -148,7 +148,7 @@ namespace Board
             if (!_isShootActionSelected)
             {
                 var shootButton = GameObject.Find("ShootButton")?.GetComponent<Button>();
-                SetEnableButton(shootButton, CurrentPlayer.IsInCombat());
+                SetEnableButton(shootButton, CurrentPlayer.IsInCombat() && CurrentPlayer.Weapon.AmmoCount>0);
             }
 
             if (!_isMeleeActionSelected)
