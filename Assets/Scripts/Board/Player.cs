@@ -22,6 +22,9 @@ namespace Board
         private bool _isSlimed;
         private bool _hasSentSignal;
 
+        private bool _isHibernating;
+        private bool _hasEscape;
+
         public Weapon Weapon;
 
         private Material _defaultMaterial;
@@ -31,6 +34,9 @@ namespace Board
             _isSlimed = false;
             _hasSentSignal = false;
             Weapon = new Weapon("TestWeapon", 5, true);
+
+            _isHibernating = false;
+            _hasEscape = false;
         }
 
         public void PerformMoveAction(Room room)
@@ -62,7 +68,7 @@ namespace Board
                 PerformNoiseRoll();
             }
 
-            Ship.GetInstance().SetMoveActionOnOff();
+            Ship.GetInstance().SetMoveActionOff();
             Ship.GetInstance().SetRoomInfo();
         }
 
@@ -130,11 +136,11 @@ namespace Board
             //Reset Actions
             if (withWeapon)
             {
-                Ship.GetInstance().SetShootActionOnOff();
+                Ship.GetInstance().SetShootActionOff();
             }
             else
             {
-                Ship.GetInstance().SetMeleeActionOnOff();
+                Ship.GetInstance().SetMeleeActionOff();
             }  
         }
 
@@ -171,6 +177,17 @@ namespace Board
             }
         }
 
+        public bool PerformRoomAction(int index)
+        {
+            bool success = CurrentRoom.ExecuteRoomFunction(index);
+            if (success)
+            {
+                ++ActionCountTurn;
+                Ship.GetInstance().SetRoomAction1Off();
+            }
+
+            return success;
+        }
         internal void NoiseRollDanger()
         {
             var adjacentIntruders = new List<Intruder>();
@@ -216,10 +233,10 @@ namespace Board
             switch (explorationToken.Item1)
             {
                 case ExplorationTokenEnum.Fire:
-                    CurrentRoom.IsOnFire = true;
+                    CurrentRoom.SetOnFire(true);
                     break;
                 case ExplorationTokenEnum.Broken:
-                    CurrentRoom.IsBroken = true;
+                    CurrentRoom.SetBroken(true);
                     break;
                 case ExplorationTokenEnum.Slime:
                     Ship.GetInstance().CurrentPlayer.SetSlime(true);
@@ -227,21 +244,9 @@ namespace Board
                 case ExplorationTokenEnum.Door:
                     //Implement Door Mechanics
                     var corridor = CurrentRoom.Corridors.Values.ToList().Find(c => (c.Room1 == CurrentRoom && (c as RegularCorridor)?.Room2 == origin) || (c.Room1 == origin && (c as RegularCorridor)?.Room2 == CurrentRoom));
-                    if (corridor)
+                    if (corridor != null)
                     {
-                        (corridor as RegularCorridor).Door = DoorEnum.Closed;
-
-                        Vector3 corridorVec = origin.transform.position - CurrentRoom.transform.position;
-                        var doorGO = GameObject.Instantiate(Ship.GetInstance().ClosedDoorPrefab);
-                        doorGO.transform.SetParent(corridor.transform);
-
-                        float offset = 0.25f;
-                        Vector3 offsetVector = corridorVec.normalized * offset;
-                        doorGO.transform.localPosition = new Vector3(offsetVector.x, doorGO.transform.localPosition.y, offsetVector.z);
-
-                        float angle = Vector3.SignedAngle(Vector3.forward, corridorVec.normalized, Vector3.up);
-                        doorGO.transform.rotation = Quaternion.Euler(0, angle, 0);
-
+                        (corridor as RegularCorridor).CloseDoor();
                     }
                     else
                     {
@@ -273,7 +278,7 @@ namespace Board
             _hasSentSignal = true;
         }
 
-        internal void VisualizePlayer()
+        internal void Visualize()
         {
             gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().SelectedMaterial });
         }
@@ -281,11 +286,6 @@ namespace Board
         internal void ResetMaterial()
         {
             gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { _defaultMaterial });
-        }
-
-        internal void Visualize()
-        {
-            gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().AdjacentMaterial });
         }
 
         internal bool IsInCombat()
@@ -307,6 +307,18 @@ namespace Board
         {
             Weapon.AmmoCount += ammo;
             Math.Min(Weapon.AmmoCount, Weapon.AmmoCapacity);
+        }
+
+        public bool Hibernate()
+        {
+            if (_isHibernating || _hasEscape)
+            {
+                return false;
+            }
+
+            _isHibernating = true;
+            CurrentRoom.RemovePlayerFromRoom(this);
+            return true;
         }
     }
 }

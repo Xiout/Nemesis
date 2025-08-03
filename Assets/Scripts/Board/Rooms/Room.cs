@@ -20,9 +20,12 @@ namespace Board.Rooms
         public List<Player> Players;
         public List<Intruder> Intruders;
         private RoomFunction _roomFunction;
-        public bool IsBroken;
-        public bool IsOnFire;
+        public bool IsBroken { get; private set; }
+        public bool IsOnFire { get; private set; }
         public int ObjectCount;
+
+        private GameObject _fireTokenGO;
+        private GameObject _brokenTokenGO;
 
         private void Awake()
         {
@@ -52,6 +55,16 @@ namespace Board.Rooms
                     SpawnPositions.Add(Tuple.Create(child.localPosition, true));
                 }
             }
+
+            _fireTokenGO = GameObject.Instantiate(Ship.GetInstance().FireTokenPrefab);
+            _fireTokenGO.transform.SetParent(transform);
+            _fireTokenGO.transform.localPosition = new Vector3(-0.15f, _fireTokenGO.transform.position.y, -0.5f);
+            _fireTokenGO.SetActive(false);
+
+            _brokenTokenGO = GameObject.Instantiate(Ship.GetInstance().BrokenTokenPrefab);
+            _brokenTokenGO.transform.SetParent(transform);
+            _brokenTokenGO.transform.localPosition = new Vector3(0.15f, _fireTokenGO.transform.position.y, -0.5f);
+            _brokenTokenGO.SetActive(false);
         }
 
         void Start()
@@ -205,8 +218,13 @@ namespace Board.Rooms
                     continue;
                 }
 
-                adjacent.gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().AdjacentMaterial });
+                adjacent.Vizualize();
             }
+        }
+
+        internal void Vizualize()
+        {
+            gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().SelectableMaterial });
         }
 
         internal void ResetMaterial()
@@ -268,7 +286,42 @@ namespace Board.Rooms
 
             ResetMaterial();
 
+            if (_roomFunction.Name.StartsWith("Evacuation Section"))
+            {
+                List<EscapePod> listPods;
+                if (_roomFunction.Name.EndsWith("A"))
+                {
+                    listPods = Ship.GetInstance().EscapePods.Where(p => p.PodNumber % 2 == 1).ToList();
+                }
+                else if (_roomFunction.Name.EndsWith("B"))
+                {
+                    listPods = Ship.GetInstance().EscapePods.Where(p => p.PodNumber % 2 == 1).ToList();
+                }
+                else
+                {
+                    Debug.LogWarning($"Invalid Evacuation Section naming : {_roomFunction.Name}");
+                    return false;
+                }
+
+                foreach (EscapePod pod in listPods)
+                {
+                    pod.SetEscapeSession(this);
+                }
+            }
+
             return true;
+        }
+
+        public void SetOnFire(bool onFire)
+        {
+            IsOnFire = onFire;
+            _fireTokenGO.SetActive(IsOnFire);
+        }
+
+        public void SetBroken(bool broken)
+        {
+            IsBroken = broken;
+            _brokenTokenGO.SetActive(IsBroken);
         }
 
         public bool IsRoomEmpty()
@@ -284,6 +337,36 @@ namespace Board.Rooms
         public string GetRoomFunctionName()
         {
             return _roomFunction.Name;
+        }
+
+        public int GetRoomActionCount()
+        {
+            if(_roomFunction.RoomActions == null)
+            {
+                return 0;
+            }
+
+            return _roomFunction.RoomActions.Count;
+        }
+
+        public string GetRoomActionName(int index)
+        {
+            if (GetRoomActionCount() <= index)
+            {
+                return null;
+            }
+
+            return _roomFunction.RoomActions[index].Name;
+        }
+
+        public bool ExecuteRoomFunction(int index)
+        {
+            return _roomFunction.ExecuteAction(index);
+        }
+
+        public bool IsRoomActionAuto(int index)
+        {
+            return _roomFunction.RoomActions[index].IsAutoAction;
         }
     }
 }

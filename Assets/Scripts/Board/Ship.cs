@@ -23,6 +23,7 @@ namespace Board
         internal List<Corridor> Corridors;
         internal List<Player> Players;
         internal List<Intruder> Intruders;
+        internal List<EscapePod> EscapePods;
 
         internal bool[] _engineStatus;
         private DirectionEnum[] DirectionsArray;
@@ -31,6 +32,8 @@ namespace Board
         private bool _isSelfDesctructOn;
         private int? _selfDestructTrack;
 
+        public Room RoomToDepressurize;
+
         public float CorridorThickness;
         public GameObject TechnicalCorridorMarkerPrefab;
         public GameObject NoiseMarkerPrefab;
@@ -38,11 +41,13 @@ namespace Board
         public GameObject BrokenDoorPrefab;
         public List<GameObject> IntruderPrefabs;
         public List<GameObject> PlayerPrefabs;
+        public GameObject BrokenTokenPrefab;
+        public GameObject FireTokenPrefab;
         public Material DefaultButtonMaterial;
         public Material DisabledButtonMaterial;
         public Material SelectedButtonMaterial;
         public Material SelectedMaterial;
-        public Material AdjacentMaterial;
+        public Material SelectableMaterial;
         public Material SingleCorridorMaterial;
         public Material DoubleCorridorMaterial;
         public Material ErrorMaterial;
@@ -54,12 +59,21 @@ namespace Board
         public Material YellowTileMaterial;
         public Material SpecialTileMaterial;
         public Material GeneralistTileMaterial;
+        public Material EscapePodLocked;
+        public Material EscapePodUnlocked;
+
+        private GameObject _moveButtonGO;
+        private GameObject _shootButtonGO;
+        private GameObject _meleeButtonGO;
+        private GameObject _actionRoom1ButtonGO;
 
         private bool _isMoveActionSelected;
         private bool _isShootActionSelected;
         private bool _isMeleeActionSelected;
+        private bool _isRoomAction1Selected;
 
         public Player CurrentPlayer { get; private set; }
+        public GameObject SelectedGameObject { get; private set; }
 
         private void Awake()
         {
@@ -77,8 +91,16 @@ namespace Board
             Corridors = new List<Corridor>();
             Players = new List<Player>();
             Intruders = new List<Intruder>();
+            EscapePods = new List<EscapePod>();
             DirectionsArray = new DirectionEnum[]{ DirectionEnum.Earth, DirectionEnum.Mars, DirectionEnum.Venus, DirectionEnum.DeepSpace };
             _engineStatus = new bool[3];
+            RoomToDepressurize = null;
+
+            _moveButtonGO = GameObject.Find("MoveButton");
+            _shootButtonGO = GameObject.Find("ShootButton");
+            _meleeButtonGO = GameObject.Find("MeleeButton");
+            _meleeButtonGO = GameObject.Find("MeleeButton");
+            _actionRoom1ButtonGO = GameObject.Find("RoomAction1Button");
 
             _isMoveActionSelected = false;
             _isShootActionSelected = false;
@@ -93,8 +115,6 @@ namespace Board
         void Start()
         {
             //Fetch Board Component
-            Rooms = new List<Room>();
-            Players = new List<Player>();
             for (int i = 0; i < transform.childCount; ++i)
             {
                 var child = transform.GetChild(i);
@@ -106,6 +126,31 @@ namespace Board
                     {
                         var meshCollider = room.gameObject.AddComponent<MeshCollider>();
                         meshCollider.sharedMesh = room.gameObject.GetComponent<MeshFilter>().mesh;
+                    }
+                }
+                else
+                {
+                    var escapePod = child.gameObject.GetComponent<EscapePod>();
+                    if(escapePod != null)
+                    {
+                        int maxPod;
+                        if (PlayerCount <= 2){maxPod = 2;}
+                        else if (PlayerCount <= 4){ maxPod = 3; }
+                        else { maxPod = 4;}
+
+                        if (EscapePods.Count < maxPod)
+                        {
+                            EscapePods.Add(escapePod);
+                            if (escapePod.gameObject.GetComponent<Collider>() == null)
+                            {
+                                var meshCollider = escapePod.gameObject.AddComponent<MeshCollider>();
+                                meshCollider.sharedMesh = escapePod.gameObject.GetComponent<MeshFilter>().mesh;
+                            }
+                        }
+                        else
+                        {
+                            GameObject.Destroy(escapePod.gameObject);
+                        }
                     }
                 }
             }
@@ -130,6 +175,8 @@ namespace Board
             InitPlayers();
 
             SetRoomInfo();
+
+            SelectedGameObject = null;
         }
 
         void Update()
@@ -140,40 +187,53 @@ namespace Board
                 CurrentPlayer = Players[indexNextPlayer];
                 CurrentPlayer.ResetTurnActionCount();
 
-                _isMeleeActionSelected = false;
-                _isMoveActionSelected = false;
-                _isShootActionSelected = false;
-            }
-
-            if (!_isShootActionSelected)
-            {
-                var shootButton = GameObject.Find("ShootButton")?.GetComponent<Button>();
-                SetEnableButton(shootButton, CurrentPlayer.IsInCombat() && CurrentPlayer.Weapon.AmmoCount>0);
-            }
-
-            if (!_isMeleeActionSelected)
-            {
-                var meleeButton = GameObject.Find("MeleeButton")?.GetComponent<Button>();
-                SetEnableButton(meleeButton, CurrentPlayer.IsInCombat());
-            }
-
-            if (!_isMoveActionSelected && !_isMeleeActionSelected && !_isShootActionSelected)
-            {
+                ResetAllActionsToOff();
                 ResetAllBoardComponents();
+                CurrentPlayer.Visualize();
+                SetRoomInfo();
             }
 
-            CurrentPlayer.Visualize();
+            if (!CurrentPlayer.IsInCombat())
+            {
+                SetMeleeActionOff();
+                SetShootActionOff();
+                SetEnableButton(_shootButtonGO.GetComponent<Button>(), false);
+                SetEnableButton(_meleeButtonGO.GetComponent<Button>(), false);
+
+                if (_actionRoom1ButtonGO?.activeSelf ?? false)
+                {
+                    SetEnableButton(_actionRoom1ButtonGO.GetComponent<Button>(), !CurrentPlayer.CurrentRoom.IsBroken);
+                }
+            }
+            else
+            {
+                SetRoomAction1Off();
+
+                SetEnableButton(_shootButtonGO.GetComponent<Button>(), CurrentPlayer.Weapon.AmmoCount > 0);
+                SetEnableButton(_meleeButtonGO.GetComponent<Button>(), true);
+
+                if (_actionRoom1ButtonGO?.activeSelf ?? false)
+                {
+                    SetEnableButton(_actionRoom1ButtonGO.GetComponent<Button>(), false);
+                }
+            }
+
+
+            if (!_isMoveActionSelected && !_isMeleeActionSelected && !_isShootActionSelected && !_isRoomAction1Selected)
+            {
+                ResetAllBoardComponents(true);
+            }
 
             if (Input.GetMouseButtonDown(0))
             {
                 RaycastHit raycastHit;
                 if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out raycastHit, 100))
                 {
-                    var hitGo = raycastHit.collider.gameObject;
-                    Debug.Log($"Hit on "+ hitGo.name);
+                    SelectedGameObject = raycastHit.collider.gameObject;
+                    Debug.Log($"Hit on "+ SelectedGameObject.name);
 
                     if(_isMoveActionSelected){
-                        var hitRoom = hitGo.GetComponent<Room>();
+                        var hitRoom = SelectedGameObject.GetComponent<Room>();
                         if (hitRoom != null)
                         {
                             if (CurrentPlayer != null && CurrentPlayer.CurrentRoom.AdjacentRooms.Contains(hitRoom))
@@ -185,41 +245,50 @@ namespace Board
 
                                 if (corridor?.Door == DoorEnum.Closed)
                                 {
-                                    hitGo.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
-                                    Debug.Log($"Cannot move to room {hitRoom.name} from {CurrentPlayer.CurrentRoom.name} because the door is closed in {corridor.name}");
+                                    SelectedGameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
                                 }
                                 else
                                 {
                                     CurrentPlayer.PerformMoveAction(hitRoom);
-                                    ResetAllBoardComponents();
                                 }
                             }
                             else
                             {
-                                hitGo.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
+                                SelectedGameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
                             }
                         }
                     }
                 
                     if(_isMeleeActionSelected || _isShootActionSelected)
                     {
-                        var hitIntruder = hitGo.GetComponent<Intruder>();
-                        if (hitIntruder != null)
+                        var hitIntruder = SelectedGameObject.GetComponent<Intruder>();
+                        if (hitIntruder != null && hitIntruder.CurrentRoom == CurrentPlayer.CurrentRoom)
                         {
-                            if (hitIntruder.CurrentRoom == CurrentPlayer.CurrentRoom)
+                            CurrentPlayer.PerformFightAction(hitIntruder, _isShootActionSelected);
+                        }
+                        else
+                        {
+                            SelectedGameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
+                        }
+                    }
+
+                    if (_isRoomAction1Selected)
+                    {
+                        bool success = CurrentPlayer.PerformRoomAction(0);
+
+                        if(!success)
+                        {
+                            Debug.Log("Room action unsuccessful");
+                            if(SelectedGameObject != null)
                             {
-                                CurrentPlayer.PerformFightAction(hitIntruder, _isShootActionSelected);
-                            }
-                            else
-                            {
-                                hitGo.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
+                                SelectedGameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { ErrorMaterial });
                             }
                         }
                     }
                 }
                 else
                 {
-                    ResetAllBoardComponents();
+                    SelectedGameObject = null;
                 }
             }
         }
@@ -255,9 +324,10 @@ namespace Board
                 Players.Add(player);
             }
 
+            CurrentPlayer = Players.Find(p => p.PlayerOrder == 1);
         }
 
-        private void VisualizeIntruders()
+        private void VisualizeSelectableIntruders()
         {
             for(int i = 0; i < CurrentPlayer.CurrentRoom.Intruders.Count; ++i)
             {
@@ -265,7 +335,90 @@ namespace Board
             }
         }
 
-        private void ResetAllBoardComponents()
+        private void VisulizeSelectableForRoomAction(string roomAction)
+        {
+            if (roomAction == "Depressurize")
+            {
+                VisualizeYellowRoomExcludingCurrent();
+            }
+            else if (roomAction == "Check Engine")
+            {
+                VisualizeEngines();
+            }else if (roomAction == "Check Unexplored Room")
+            {
+                VizualizeUnexploredRooms();
+            }else if (roomAction == "Anti-Fire Procedure")
+            {
+                VizualizeRoomsWithFireOrIntruder();
+            }else if(roomAction == "Enter Escape Pod")
+            {
+                VisualizeAvailableEscapePod();
+            }
+            else
+            {
+                ResetAllBoardComponents(true);
+            }
+        }
+
+        private void VisualizeYellowRoomExcludingCurrent()
+        {
+            var yellowRooms = Rooms.Where(r => r.RoomType == RoomTypeEnum.Yellow);
+
+            foreach (var room in yellowRooms)
+            {
+                if(room != CurrentPlayer.CurrentRoom)
+                    room.Vizualize();
+            }
+        }
+
+        private void VisualizeEngines()
+        {
+            var engineRooms = Rooms.Where(r => r.GetRoomFunctionName().StartsWith("Engine"));
+
+            foreach (var room in engineRooms)
+            {
+                room.Vizualize();
+            }
+        }
+
+        private void VizualizeUnexploredRooms()
+        {
+            var unexploredRoom = Rooms.Where(r => r.RoomType == RoomTypeEnum.Unknown);
+
+            foreach (var room in unexploredRoom)
+            {
+                room.Vizualize();
+            }
+        }
+
+        private void VizualizeRoomsWithFireOrIntruder()
+        {
+            for (int i = 0; i < Rooms.Count; i++)
+            {
+                var room = Rooms[i];
+                if(room.IsOnFire || room.Intruders.Count > 0)
+                {
+                    room.Vizualize();
+                }
+            }
+        }
+
+        private void VisualizeAvailableEscapePod()
+        {
+            string s = "";
+            for (int i = 0; i < EscapePods.Count; i++)
+            {
+                var pod = EscapePods[i];
+                if(!pod.IsLocked && pod.EscapeSection == CurrentPlayer.CurrentRoom)
+                {
+                    pod.Vizualize();
+                    s += $"{pod.name}, ";
+                }
+            }
+            Debug.Log("Available Pod : " + s);
+        }
+
+        private void ResetAllBoardComponents(bool skipCurrentPlayer = false)
         {
             for (int i = 0; i < Rooms.Count; i++)
             {
@@ -279,7 +432,15 @@ namespace Board
 
             for (int i = 0; i < Players.Count; ++i)
             {
+                if (skipCurrentPlayer && CurrentPlayer == Players[i])
+                    continue;
+
                 Players[i].ResetMaterial();
+            }
+
+            for (int i = 0; i < EscapePods.Count; ++i)
+            {
+                EscapePods[i].ResetMaterial();
             }
         }
 
@@ -474,77 +635,153 @@ namespace Board
             Debug.Log(stringBuilder.ToString());
         }
 
-        public void SetMoveActionOnOff()
+        private void ResetAllActionsToOff()
         {
-            GameObject buttonGO = GameObject.Find("MoveButton");
+            SetMoveActionOff();
+            SetShootActionOff();
+            SetMeleeActionOff();
+            SetRoomAction1Off();
+        }
+
+        public void SetMoveActionOnOff_UI()
+        {
             _isMoveActionSelected = !_isMoveActionSelected;
 
             if(_isMoveActionSelected)
             {
-                buttonGO.GetComponent<Image>().material = SelectedButtonMaterial;
-                if (_isShootActionSelected)
-                {
-                    if (_isMeleeActionSelected) { SetMeleeActionOnOff(); }
-                    if (_isShootActionSelected) { SetShootActionOnOff(); }
-                }
+                _moveButtonGO.GetComponent<Image>().material = SelectedButtonMaterial;
 
+                SetShootActionOff();
+                SetMeleeActionOff();
+                SetRoomAction1Off();
+
+                ResetAllBoardComponents(true);
                 CurrentPlayer.CurrentRoom.VisualizeRoomAndAdjacents();
             }
             else
             {
-                buttonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+                ResetAllBoardComponents(true);
+                _moveButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
             }
             
         }
 
-        public void SetShootActionOnOff()
+        internal void SetMoveActionOff()
         {
-            GameObject buttonGO = GameObject.Find("ShootButton");
+            if (!_isMoveActionSelected) return;
+
+            _isMoveActionSelected = false;
+            _moveButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+        }
+
+        public void SetShootActionOnOff_UI()
+        {
             _isShootActionSelected = !_isShootActionSelected;
 
             if (_isShootActionSelected)
             {
-                buttonGO.GetComponent<Image>().material = SelectedButtonMaterial;
-                if (_isShootActionSelected)
-                {
-                    if (_isMoveActionSelected)  { SetMoveActionOnOff();  }
-                    if (_isMeleeActionSelected) { SetMeleeActionOnOff(); }
-                }
+                _shootButtonGO.GetComponent<Image>().material = SelectedButtonMaterial;
 
-                VisualizeIntruders();
+                SetMoveActionOff();
+                SetMeleeActionOff();
+                SetRoomAction1Off();
+
+                ResetAllBoardComponents(true);
+                VisualizeSelectableIntruders();
             }
             else
             {
-                buttonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+                ResetAllBoardComponents(true);
+                _shootButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
             }
+
+            Debug.Log("Button Click: " + _shootButtonGO.GetComponent<Image>().material.name);
 
         }
 
-        public void SetMeleeActionOnOff()
+        internal void SetShootActionOff()
         {
-            GameObject buttonGO = GameObject.Find("MeleeButton");
+            if (!_isShootActionSelected) return;
+
+            _isShootActionSelected = false;
+            _shootButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+        }
+
+        public void SetMeleeActionOnOff_UI()
+        {
             _isMeleeActionSelected = !_isMeleeActionSelected;
 
             if (_isMeleeActionSelected)
             {
-                buttonGO.GetComponent<Image>().material = SelectedButtonMaterial;
-                if (_isMeleeActionSelected)
-                {
-                    if (_isMoveActionSelected)  { SetMoveActionOnOff();  }
-                    if (_isShootActionSelected) { SetShootActionOnOff(); }
-                }
+                _meleeButtonGO.GetComponent<Image>().material = SelectedButtonMaterial;
 
-                VisualizeIntruders();
+                SetMoveActionOff();
+                SetShootActionOff();
+                SetRoomAction1Off();
+
+                ResetAllBoardComponents(true);
+                VisualizeSelectableIntruders();
             }
             else
             {
-                buttonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+                ResetAllBoardComponents(true);
+                _meleeButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
             }
-
         }
 
-        public void SetEnableButton(Button button, bool enable) 
-        { 
+        internal void SetMeleeActionOff()
+        {
+            if (!_isMeleeActionSelected) return;
+
+            _isMeleeActionSelected = false;
+            _meleeButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+        }
+
+        public void SetRoomAction1OnOff_UI()
+        {
+            _isRoomAction1Selected = !_isRoomAction1Selected;
+
+            if (_isRoomAction1Selected)
+            {
+                SetMoveActionOff();
+                SetShootActionOff();
+                SetMeleeActionOff();
+
+                if (CurrentPlayer.CurrentRoom.IsRoomActionAuto(0))
+                {
+                    bool success = CurrentPlayer.PerformRoomAction(0);
+                    if (success)
+                    {
+                        SetRoomAction1Off();
+                    }
+                }
+                else
+                {
+                    ResetAllBoardComponents(true);
+                    VisulizeSelectableForRoomAction(CurrentPlayer.CurrentRoom.GetRoomActionName(0));
+                    _actionRoom1ButtonGO.GetComponent<Image>().material = SelectedButtonMaterial;
+                } 
+            }
+            else
+            {
+                ResetAllBoardComponents(true);
+                _actionRoom1ButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+            }
+        }
+
+        internal void SetRoomAction1Off()
+        {
+            if (!_isRoomAction1Selected) return;
+
+            _isRoomAction1Selected = false;
+            _actionRoom1ButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+        }
+
+        private void SetEnableButton(Button button, bool enable) 
+        {
+            if (button.enabled == enable)
+                return;
+
             button.enabled = enable;
 
             if (enable)
@@ -561,6 +798,20 @@ namespace Board
         {
             GameObject labelGO = GameObject.Find("RoomInfoLabel");
             labelGO.GetComponent<TextMeshProUGUI>().text = CurrentPlayer.CurrentRoom.GetRoomInfo();
+
+            if(CurrentPlayer.CurrentRoom.GetRoomActionCount() == 0)
+            {
+                _actionRoom1ButtonGO.SetActive(false);
+            }
+            else
+            {
+                _actionRoom1ButtonGO.SetActive(true);
+                var roomAction1Button_tmp = GameObject.Find("RoomAction1Button")?.GetComponentInChildren<TextMeshProUGUI>();
+                if (roomAction1Button_tmp != null)
+                {
+                    roomAction1Button_tmp.text = CurrentPlayer.CurrentRoom.GetRoomActionName(0);
+                }
+            }
         }
     }
 }

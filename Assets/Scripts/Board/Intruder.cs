@@ -89,7 +89,7 @@ public class Intruder : MonoBehaviour
         return false;
     }
 
-    public void MoveIntruderWithCard()
+    public bool MoveIntruderWithCard()
     {
         var eventCard = EventAndIntruderAttackManager.DrawEventCard();
         if (eventCard != null)
@@ -105,6 +105,7 @@ public class Intruder : MonoBehaviour
                     CurrentRoom.RemoveIntruderFromRoom(this);
                     Ship.GetInstance().Intruders.Remove(this);
                     GameObject.Destroy(gameObject);
+                    return true;
                 }
                 else
                 {
@@ -114,19 +115,28 @@ public class Intruder : MonoBehaviour
                         Debug.LogWarning($"Corridor {corridor.name} as an invalid type");
                     }
 
+                    if(regularCorridor.Door == DoorEnum.Closed)
+                    {
+                        regularCorridor.BreakDoor();
+                        return false;
+                    }
+
                     CurrentRoom.RemoveIntruderFromRoom(this);
                     CurrentRoom = regularCorridor.Room2;
                     CurrentRoom.PlaceIntruderInRoom(this);
+                    return true;
                 }
             }
             else
             {
                 Debug.LogWarning($"No Corridor found for moving Intruder from {CurrentRoom.name} (direction {eventCard.MovementDirection})");
+                return false;
             }
         }
         else
         {
             Debug.LogWarning("Drawn Intruder Attack Card was null");
+            return false;
         }
     }
 
@@ -137,7 +147,7 @@ public class Intruder : MonoBehaviour
 
     internal void Visualize()
     {
-        gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().AdjacentMaterial});
+        gameObject.GetComponent<MeshRenderer>().SetMaterials(new List<Material>() { Ship.GetInstance().SelectableMaterial});
     }
 
     private void PerformIntruderDeath()
