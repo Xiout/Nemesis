@@ -183,14 +183,23 @@ namespace Board
             SelectedGameObject = null;
         }
 
+        internal void NextPlayer()
+        {
+            int indexNextPlayer = (Players.IndexOf(CurrentPlayer) + 1) % Players.Count;
+            CurrentPlayer = Players[indexNextPlayer];
+            CurrentPlayer.ResetTurnActionCount();
+            Player.UpdateHealthStatCurrentPlayerDebug();
+        }
+
         void Update()
         {
             if (CurrentPlayer.ActionCountTurn >= 2)
             {
-                int indexNextPlayer = (Players.IndexOf(CurrentPlayer) + 1) % Players.Count;
-                CurrentPlayer = Players[indexNextPlayer];
-                CurrentPlayer.ResetTurnActionCount();
-
+                do
+                {
+                    NextPlayer();
+                } while (CurrentPlayer.IsDead);
+                
                 ResetAllActionsToOff();
                 ResetAllBoardComponents();
                 CurrentPlayer.Visualize();
@@ -210,8 +219,9 @@ namespace Board
                 if (_actionRoom1ButtonGO?.activeSelf ?? false)
                 {
                     SetEnableButton(_actionRoom1ButtonGO.GetComponent<Button>(), !CurrentPlayer.CurrentRoom.IsBroken);
-                }
+                }         
             }
+            
             else
             {
                 SetEnableButton(_shootButtonGO.GetComponent<Button>(), CurrentPlayer.Weapon.AmmoCount > 0);
@@ -226,7 +236,19 @@ namespace Board
                     SetEnableButton(_actionRoom1ButtonGO.GetComponent<Button>(), false);
                 }
             }
-
+            
+            var moveButton_tmp = GameObject.Find("MoveButton")?.GetComponentInChildren<TextMeshProUGUI>();
+            if (moveButton_tmp != null)
+            {
+                if (CurrentPlayer.IsInCombat())
+                {
+                    moveButton_tmp.text = "Escape";
+                }
+                else
+                {
+                    moveButton_tmp.text = "Move";
+                }
+            } 
 
             if (!_isMoveActionSelected && !_isMeleeActionSelected && !_isShootActionSelected && !_isRoomAction1Selected)
             {

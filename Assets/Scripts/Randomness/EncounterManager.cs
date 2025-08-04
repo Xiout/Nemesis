@@ -116,24 +116,9 @@ namespace Randomness
                 SetUpIntruderBag();
             }
 
-            Tuple<IntruderTypeEnum, int> token = null;
-            if(surpriseAttackCount != null)
-            {
-                token = RemainingTokens.Find(x => x.Item1 == intruderType && x.Item2 == surpriseAttackCount);
-                if(token != null)
-                {
-                    IntruderBag.Add(token);
-                    RemainingTokens.Remove(token);
-                    return true;
-                }
-
-                Debug.LogWarning($"Could not find an intruder token {intruderType} ({surpriseAttackCount}) to place back in the bag");
-            }
-
-            token = RandomUtils.DrawOnce(RemainingTokens.Where(x => x.Item1 == intruderType).ToList());
+            Tuple<IntruderTypeEnum, int> token = FindIntruderTokenInRemainingTokens(intruderType, surpriseAttackCount);
             if (token == null)
             {
-                Debug.LogWarning($"Could not find any intruder token {intruderType} to place back in the bag");
                 return false;
             }
 
@@ -141,7 +126,33 @@ namespace Randomness
             RemainingTokens.Remove(token);
             return true;
         }
-    
+
+        public static Tuple<IntruderTypeEnum, int> FindIntruderTokenInRemainingTokens(IntruderTypeEnum intruderType, int? surpriseAttackCount = null)
+        {
+            Tuple<IntruderTypeEnum, int> token;
+            if (surpriseAttackCount != null)
+            {
+                token = RemainingTokens.Find(x => x.Item1 == intruderType && x.Item2 == surpriseAttackCount);
+                if (token != null)
+                {
+                    IntruderBag.Add(token);
+                    RemainingTokens.Remove(token);
+                    return token;
+                }
+
+                Debug.LogWarning($"Could not find an intruder token {intruderType} ({surpriseAttackCount})");
+            }
+
+            token = RandomUtils.DrawOnce(RemainingTokens.Where(x => x.Item1 == intruderType).ToList());
+            if (token == null)
+            {
+                Debug.LogWarning($"Could not find any intruder token {intruderType}");
+                return null;
+            }
+
+            return token;
+        }
+
         public static bool IsBagEmpty()
         {
             if(IntruderBag == null){
