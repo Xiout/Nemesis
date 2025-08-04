@@ -66,11 +66,13 @@ namespace Board
         private GameObject _shootButtonGO;
         private GameObject _meleeButtonGO;
         private GameObject _actionRoom1ButtonGO;
+        private GameObject _repairButtonGO;
 
         private bool _isMoveActionSelected;
         private bool _isShootActionSelected;
         private bool _isMeleeActionSelected;
         private bool _isRoomAction1Selected;
+        private bool _isRepairButtonSelected;
 
         public Player CurrentPlayer { get; private set; }
         public GameObject SelectedGameObject { get; private set; }
@@ -99,12 +101,14 @@ namespace Board
             _moveButtonGO = GameObject.Find("MoveButton");
             _shootButtonGO = GameObject.Find("ShootButton");
             _meleeButtonGO = GameObject.Find("MeleeButton");
-            _meleeButtonGO = GameObject.Find("MeleeButton");
             _actionRoom1ButtonGO = GameObject.Find("RoomAction1Button");
+            _repairButtonGO = GameObject.Find("RepairButton");
 
             _isMoveActionSelected = false;
             _isShootActionSelected = false;
             _isMeleeActionSelected = false;
+            _isRoomAction1Selected = false;
+            _isRepairButtonSelected = false;
         }
 
         public static Ship GetInstance()
@@ -195,10 +199,13 @@ namespace Board
 
             if (!CurrentPlayer.IsInCombat())
             {
-                SetMeleeActionOff();
                 SetShootActionOff();
                 SetEnableButton(_shootButtonGO.GetComponent<Button>(), false);
+
+                SetMeleeActionOff();
                 SetEnableButton(_meleeButtonGO.GetComponent<Button>(), false);
+
+                SetEnableButton(_repairButtonGO.GetComponent<Button>(), CurrentPlayer.CurrentRoom.IsBroken);
 
                 if (_actionRoom1ButtonGO?.activeSelf ?? false)
                 {
@@ -207,11 +214,13 @@ namespace Board
             }
             else
             {
-                SetRoomAction1Off();
-
                 SetEnableButton(_shootButtonGO.GetComponent<Button>(), CurrentPlayer.Weapon.AmmoCount > 0);
                 SetEnableButton(_meleeButtonGO.GetComponent<Button>(), true);
 
+                SetRepairActionOff();
+                SetEnableButton(_repairButtonGO.GetComponent<Button>(), false);
+
+                SetRoomAction1Off();
                 if (_actionRoom1ButtonGO?.activeSelf ?? false)
                 {
                     SetEnableButton(_actionRoom1ButtonGO.GetComponent<Button>(), false);
@@ -641,6 +650,7 @@ namespace Board
             SetShootActionOff();
             SetMeleeActionOff();
             SetRoomAction1Off();
+            SetRepairActionOff();
         }
 
         public void SetMoveActionOnOff_UI()
@@ -654,6 +664,7 @@ namespace Board
                 SetShootActionOff();
                 SetMeleeActionOff();
                 SetRoomAction1Off();
+                SetRepairActionOff();
 
                 ResetAllBoardComponents(true);
                 CurrentPlayer.CurrentRoom.VisualizeRoomAndAdjacents();
@@ -685,6 +696,7 @@ namespace Board
                 SetMoveActionOff();
                 SetMeleeActionOff();
                 SetRoomAction1Off();
+                SetRepairActionOff();
 
                 ResetAllBoardComponents(true);
                 VisualizeSelectableIntruders();
@@ -718,6 +730,7 @@ namespace Board
                 SetMoveActionOff();
                 SetShootActionOff();
                 SetRoomAction1Off();
+                SetRepairActionOff();
 
                 ResetAllBoardComponents(true);
                 VisualizeSelectableIntruders();
@@ -737,6 +750,36 @@ namespace Board
             _meleeButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
         }
 
+        public void SetRepairActionOnOff_UI()
+        {
+            _isRepairButtonSelected = !_isRepairButtonSelected;
+
+            if (_isRepairButtonSelected)
+            {
+                _repairButtonGO.GetComponent<Image>().material = SelectedButtonMaterial;
+
+                SetMoveActionOff();
+                SetShootActionOff();
+                SetMeleeActionOff();
+                SetRoomAction1Off();
+
+                ResetAllBoardComponents(true);
+
+                CurrentPlayer.PerformRepairAction();
+
+                _isRepairButtonSelected = false;
+            }
+        }
+
+        internal void SetRepairActionOff()
+        {
+            if (!_isRepairButtonSelected) return;
+
+            _isRepairButtonSelected = false;
+            _repairButtonGO.GetComponent<Image>().material = DefaultButtonMaterial;
+        }
+
+
         public void SetRoomAction1OnOff_UI()
         {
             _isRoomAction1Selected = !_isRoomAction1Selected;
@@ -746,6 +789,7 @@ namespace Board
                 SetMoveActionOff();
                 SetShootActionOff();
                 SetMeleeActionOff();
+                SetRepairActionOff();
 
                 if (CurrentPlayer.CurrentRoom.IsRoomActionAuto(0))
                 {

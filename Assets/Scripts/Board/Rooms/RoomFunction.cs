@@ -38,7 +38,7 @@ namespace Board.Rooms
             var ship = Ship.GetInstance();
             var player = ship.CurrentPlayer;
 
-            //check round number
+            //TODO check round number for availability
 
             player.PerformNoiseRoll();
             if(player.CurrentRoom.Intruders.Count <= 0)
@@ -82,7 +82,7 @@ namespace Board.Rooms
             if (player.CurrentRoom.Intruders.Count <= 0)
             {
                 Debug.Log("Escape Successfull (NOT IMPLEMENTED)");
-                //Implement Escape
+                //TODO Implement Escape
             }
 
             return true;
@@ -199,6 +199,8 @@ namespace Board.Rooms
             Ship.GetInstance().RoomToDepressurize = room;
             return true;
         }
+
+
 
         public readonly static RoomFunction[] AllRooms =
         {

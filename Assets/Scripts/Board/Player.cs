@@ -144,6 +144,24 @@ namespace Board
             }  
         }
 
+        public bool PerformRepairAction()
+        {
+            if (IsInCombat())
+            {
+                Debug.LogWarning($"{this.name} cannot repair room {CurrentRoom.name} : In Combat");
+                return false;
+            }
+
+            if (!CurrentRoom.IsBroken)
+            {
+                Debug.LogWarning($"{this.name} cannot repair room {CurrentRoom.name} : Room not broken");
+            }
+            
+            CurrentRoom.SetBroken(false);
+            ActionCountTurn++;
+            return true;
+        }
+
         public void PerformNoiseRoll()
         {
             var diceResult = DiceManager.RollNoiseDice();
@@ -318,6 +336,7 @@ namespace Board
 
             _isHibernating = true;
             CurrentRoom.RemovePlayerFromRoom(this);
+            gameObject.SetActive(false);
             return true;
         }
     }
