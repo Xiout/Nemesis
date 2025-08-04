@@ -54,9 +54,10 @@ namespace Board
             if (IsInCombat())
             {
                 //Perform Intruder's attacks
-                for(int i= 0; i<CurrentRoom.Intruders.Count(); ++i)
+                List<Intruder> currentIntruder = new List<Intruder>(CurrentRoom.Intruders);
+                for(int i= 0; i< currentIntruder.Count(); ++i)
                 {
-                    CurrentRoom.Intruders[i].PerformIntruderAttack(this);
+                    currentIntruder[i].PerformIntruderAttack(this);
                 }
             }
 
@@ -176,13 +177,16 @@ namespace Board
             if (CurrentRoom.Corridors[(int)diceResult].MakeNoise())
             {
                 Debug.Log("Intruder Encounter");
-                Ship.GetInstance().ResolveIntruderEncounter();
+                var intruder = Ship.GetInstance().ResolveIntruderEncounter();
 
                 //TODO implement suprise attack from result of Intruder Encounter
 
-                foreach (var corridor in CurrentRoom.Corridors.Values.Distinct())
+                if(intruder != null)
                 {
-                    corridor.ClearNoise();
+                    foreach (var corridor in CurrentRoom.Corridors.Values.Distinct())
+                    {
+                        corridor.ClearNoise();
+                    }
                 }
             }
         }

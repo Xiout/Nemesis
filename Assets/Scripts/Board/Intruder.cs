@@ -3,6 +3,7 @@ using Board.Corridors;
 using Board.Rooms;
 using Randomness;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Intruder : MonoBehaviour
@@ -153,7 +154,41 @@ public class Intruder : MonoBehaviour
                 return;
             }
 
-            if(card.SeriousWoundDeathCondition != null)
+            if (card.Name == "Summoning")
+            {
+                Debug.Log("Summoning Attack");
+                Ship.GetInstance().ResolveIntruderEncounter();
+                //TODO determine if Summoned Intruder gets a surprise attack
+                return;
+            }
+
+            if (card.Name == "Transformation")
+            {
+                Debug.Log($"{this.name} is transforming to Breeder");
+                
+                var newGO = GameObject.Instantiate(Ship.GetInstance().IntruderPrefabs.Find(x => x.GetComponent<Intruder>().IntruderType == IntruderTypeEnum.Breeder));
+                newGO.name = "Breeder";
+                newGO.transform.parent = transform.parent;
+                newGO.transform.position = new Vector3(transform.position.x, newGO.transform.position.y, transform.position.z);
+
+                var newIntruder = newGO.GetOrAddComponent<Intruder>();
+                newIntruder._injuryCounter = this._injuryCounter;
+                var token = EncounterManager.FindIntruderTokenInRemainingTokens(IntruderType);
+                newIntruder.SurpriseAttackCount = token.Item2;
+
+                var currentRoom = this.CurrentRoom;
+                currentRoom.RemoveIntruderFromRoom(this);
+                currentRoom.PlaceIntruderInRoom(newIntruder);
+
+                Ship.GetInstance().Intruders.Remove(this);
+                Ship.GetInstance().Intruders.Add(newIntruder);
+
+                GameObject.Destroy(gameObject);
+
+                return;
+            }
+
+            if (card.SeriousWoundDeathCondition != null)
             {
                 if(player.SeriousWoundCount() >= (int)card.SeriousWoundCount)
                 {
