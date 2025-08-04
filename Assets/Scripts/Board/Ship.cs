@@ -185,21 +185,43 @@ namespace Board
 
         internal void NextPlayer()
         {
-            int indexNextPlayer = (Players.IndexOf(CurrentPlayer) + 1) % Players.Count;
-            CurrentPlayer = Players[indexNextPlayer];
+            Player next;
+            int startIndex = Players.IndexOf(CurrentPlayer);
+
+            CurrentPlayer = null;
+            for (int i=1; i<=Players.Count; ++i)
+            {
+                int indexNextPlayer = (startIndex + i) % Players.Count;
+                next = Players[indexNextPlayer];
+
+                if(!next.IsDead && !next.IsHibernating && !next.HasEscape)
+                {
+                    CurrentPlayer = next;
+                    break;
+                }
+            }
+
+            if (CurrentPlayer == null)
+            {
+                Debug.LogWarning("No more active players in game");
+                return;
+            }
+
             CurrentPlayer.ResetTurnActionCount();
             Player.UpdateHealthStatCurrentPlayerDebug();
         }
 
         void Update()
         {
+            if(CurrentPlayer == null)
+            {
+                return;
+            }
+
             if (CurrentPlayer.ActionCountTurn >= 2)
             {
-                do
-                {
-                    NextPlayer();
-                } while (CurrentPlayer.IsDead);
-                
+                NextPlayer();
+
                 ResetAllActionsToOff();
                 ResetAllBoardComponents();
                 CurrentPlayer.Visualize();

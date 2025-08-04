@@ -200,9 +200,9 @@ public class Intruder : MonoBehaviour
 
             if (card.SeriousWoundDeathCondition != null)
             {
-                if(player.SeriousWoundCount() >= (int)card.SeriousWoundCount)
+                if(player.SeriousWoundCount() >= (int)card.SeriousWoundDeathCondition)
                 {
-                    Debug.Log($"Player {player.PlayerOrder} has {card.SeriousWoundCount} or more serious wound, He does not survive.");
+                    Debug.Log($"Player {player.PlayerOrder} has {card.SeriousWoundDeathCondition} or more serious wound, He does not survive.");
                     player.Death();
                 }
             }

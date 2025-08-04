@@ -22,8 +22,8 @@ namespace Board
         private bool _isSlimed;
         private bool _hasSentSignal;
 
-        private bool _isHibernating;
-        private bool _hasEscape;
+        public bool IsHibernating {  get; private set; }
+        public bool HasEscape { get; private set; }
 
         public Weapon Weapon;
 
@@ -49,8 +49,8 @@ namespace Board
             _contaminationCards = new List<bool>();
             _lightWoundCount = 0;
 
-            _isHibernating = false;
-            _hasEscape = false;
+            IsHibernating = false;
+            HasEscape = false;
         }
 
         private void Start()
@@ -70,6 +70,11 @@ namespace Board
                 for(int i= 0; i< currentIntruder.Count(); ++i)
                 {
                     currentIntruder[i].PerformIntruderAttack(this);
+                }
+
+                if (IsDead)
+                {
+                    return;
                 }
             }
 
@@ -425,17 +430,18 @@ namespace Board
 
         public bool Hibernate()
         {
-            if (_isHibernating || _hasEscape)
+            if (IsHibernating || HasEscape)
             {
                 return false;
             }
 
-            _isHibernating = true;
+            IsHibernating = true;
             CurrentRoom.RemovePlayerFromRoom(this);
             gameObject.SetActive(false);
+
+            Ship.GetInstance().NextPlayer();
             return true;
         }
-    }
 
         private string GetHealthStat()
         {
@@ -469,4 +475,3 @@ namespace Board
         }
     }
 }
-
