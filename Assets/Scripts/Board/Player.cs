@@ -19,11 +19,12 @@ namespace Board
         internal int ActionCountTurn { get; private set; }
 
         public Room CurrentRoom { get; set; }
+        public EscapePod EscapePod { get; set; }
         private bool _isSlimed;
         private bool _hasSentSignal;
 
         public bool IsHibernating {  get; private set; }
-        public bool HasEscape { get; private set; }
+        public bool HasEscape { get; set; }
 
         public Weapon Weapon;
 
@@ -51,6 +52,8 @@ namespace Board
 
             IsHibernating = false;
             HasEscape = false;
+
+            EscapePod = null;
         }
 
         private void Start()
@@ -199,6 +202,18 @@ namespace Board
             return true;
         }
 
+        public bool PerformRoomAction(int index)
+        {
+            bool success = CurrentRoom.ExecuteRoomFunction(index);
+            if (success)
+            {
+                ++ActionCountTurn;
+                Ship.GetInstance().SetRoomActionOff(index);
+            }
+
+            return success;
+        }
+
         public void PerformNoiseRoll()
         {
             var diceResult = DiceManager.RollNoiseDice();
@@ -235,17 +250,6 @@ namespace Board
             }
         }
 
-        public bool PerformRoomAction(int index)
-        {
-            bool success = CurrentRoom.ExecuteRoomFunction(index);
-            if (success)
-            {
-                ++ActionCountTurn;
-                Ship.GetInstance().SetRoomAction1Off();
-            }
-
-            return success;
-        }
         internal void NoiseRollDanger()
         {
             var adjacentIntruders = new List<Intruder>();
@@ -376,6 +380,58 @@ namespace Board
             return false;
         }
 
+        public bool HealLightWound(int heal)
+        {
+            if(_lightWoundCount <= 0)
+            {
+                Debug.LogWarning("No Light Wounds");
+                return false;
+            }
+
+            _lightWoundCount = Math.Max(_lightWoundCount - heal, 0);
+
+            UpdateHealthStatCurrentPlayerDebug();
+            return true;
+        }
+
+        public bool DressAllSeriousWounds()
+        {
+            if (_seriousWounds.Count <= 0)
+            {
+                Debug.LogWarning("No Serious Wounds");
+                return false;
+            }
+
+            if(!_seriousWounds.Exists(w => w != SeriousWoundEnum.Dressed))
+            {
+                Debug.LogWarning("All serious wounds are already dressed");
+                return false;
+            }
+
+            for (int i = 0; i < _seriousWounds.Count; ++i)
+            {
+                _seriousWounds[i] = SeriousWoundEnum.Dressed;
+            }
+
+            UpdateHealthStatCurrentPlayerDebug();
+            return true;
+        }
+
+        public bool HealOneDressedSeriousWound()
+        {
+            int index = _seriousWounds.FindIndex(w => w == SeriousWoundEnum.Dressed);
+            if(index == -1)
+            {
+                Debug.LogWarning("No Dressed Serious Wounds to heal");
+                return false;
+            }
+
+            _seriousWounds.RemoveAt(index);
+
+            UpdateHealthStatCurrentPlayerDebug();
+            return true;
+        }
+
         public void Death()
         {
             Debug.Log($"Player {PlayerOrder} ({Role}) died)");
@@ -409,7 +465,12 @@ namespace Board
 
         internal bool IsInCombat()
         {
-            return CurrentRoom.Intruders.Count > 0;
+            return CurrentRoom != null && CurrentRoom.Intruders.Count > 0;
+        }
+
+        public void AddActionCount(int actionPoint)
+        {
+            ActionCountTurn += actionPoint;
         }
 
         public void ResetTurnActionCount()

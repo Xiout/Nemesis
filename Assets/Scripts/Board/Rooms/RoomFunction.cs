@@ -60,32 +60,38 @@ namespace Board.Rooms
 
             if (pod == null)
             {
-                Debug.Log($"Could not perform Escape Action on GameObject {ship.SelectedGameObject.name}");
+                Debug.LogWarning($"Could not perform Escape Action on GameObject {ship.SelectedGameObject.name}");
                 return false;
             }
 
             if (pod.IsLocked)
             {
-                Debug.Log($"{pod.name} is locked ; Could not perform Escape Action on this escape Pod.");
+                Debug.LogWarning($"{pod.name} is locked ; Could not perform Escape Action on this escape Pod.");
                 return false;
             }
 
-            if (!pod.EscapeSection.GetRoomFunctionName().EndsWith(section))
+            if (pod.EvacuationSection == null || !pod.EvacuationSection.GetRoomFunctionName().EndsWith(section))
             {
-                Debug.Log($"{pod.name} belongs to the wrong evacuation section ; Could not perform Escape Action on this escape Pod.");
+                Debug.LogWarning($"{pod.name} belongs to the wrong evacuation section ; Could not perform Escape Action on this escape Pod.");
                 return false;
             }
 
             Debug.Log("Perform Room Action Escape");
 
             player.PerformNoiseRoll();
-            if (player.CurrentRoom.Intruders.Count <= 0)
+            if (player.CurrentRoom.Intruders.Count > 0)
             {
-                Debug.Log("Escape Successfull (NOT IMPLEMENTED)");
-                //TODO Implement Escape
+                return true;
             }
 
-            return true;
+            Debug.Log("Enter Escape Pod");
+            player.CurrentRoom.RemovePlayerFromRoom(player);
+            pod.PlacePlayerInPod(player);
+
+            ship.EscapePodPopUpGO.SetActive(true);
+            ship.EscapePodPopUpGO.transform.Find("ExitButton").gameObject.SetActive(false);
+
+            return false; //return false to wait for the pop-up
         }
 
         private static bool Shower() {
@@ -200,7 +206,38 @@ namespace Board.Rooms
             return true;
         }
 
+        private static bool EmergencyLightWounds()
+        {
+            return Ship.GetInstance().CurrentPlayer?.HealLightWound(2) ?? false;
+        }
 
+        private static bool EmergencyDressSeriousWounds()
+        {
+            return Ship.GetInstance().CurrentPlayer?.DressAllSeriousWounds() ?? false;
+        }
+
+        private static bool EmergencyHealDressedSeriousWound()
+        {
+            return Ship.GetInstance().CurrentPlayer?.HealOneDressedSeriousWound() ?? false;
+        }
+
+        private static bool AnalyseEgg()
+        {
+            Debug.Log("Analyse Egg (NOT IMPLEMENTED)");
+            return true;
+        }
+
+        private static bool AnalyseCorpse()
+        {
+            Debug.Log("Analyse Crew Corpse (NOT IMPLEMENTED)");
+            return true;
+        }
+
+        private static bool AnalyseCarcasse()
+        {
+            Debug.Log("Analyse Intruder Carcasse (NOT IMPLEMENTED)");
+            return true;
+        }
 
         public readonly static RoomFunction[] AllRooms =
         {
@@ -211,12 +248,16 @@ namespace Board.Rooms
             new RoomFunction("Engine 3", RoomTypeEnum.Special, true, false, new List<RoomAction> { new RoomAction("Break/Fix Engine", true, () => BreakFixEngine(2)) }), //TODO LATER : check engine
             new RoomFunction("Armory", RoomTypeEnum.Red, true, true, new List<RoomAction> { new RoomAction("Reload Weapon", true, ReloadWeapon) }),
             new RoomFunction("Communication", RoomTypeEnum.Yellow, true, true,  new List<RoomAction> { new RoomAction("Send Signal", true, SendSignal) }),
-            new RoomFunction("Emergency", RoomTypeEnum.Green, true, true),
+            new RoomFunction("Emergency", RoomTypeEnum.Green, true, true,  new List<RoomAction> { new RoomAction("Heal all light wounds", true, EmergencyLightWounds),  
+                                                                                                  new RoomAction("Dress all serious wounds", true, EmergencyDressSeriousWounds),
+                                                                                                  new RoomAction("Heal a dressed serious wounds", true, EmergencyHealDressedSeriousWound) }),
             new RoomFunction("Evacuation Section A", RoomTypeEnum.Generalist, true, true, new List<RoomAction> { new RoomAction("Enter Escape Pod", false, () => Escape("A")) }),
             new RoomFunction("Evacuation Section B", RoomTypeEnum.Generalist, true, true, new List<RoomAction> { new RoomAction("Enter Escape Pod", false, () => Escape("B")) }),
             new RoomFunction("Fire Control System", RoomTypeEnum.Yellow, true, true, new List<RoomAction> { new RoomAction("Anti-Fire Procedure", false, AntiFireProcedureOnSelectedRoom)}),
             new RoomFunction("Generator", RoomTypeEnum.Yellow, true, true, new List<RoomAction> { new RoomAction("Self Destruct On/Off", true, TurnSelfDestructOnOff) }),
-            new RoomFunction("Laboratory", RoomTypeEnum.Green, true, true),
+            new RoomFunction("Laboratory", RoomTypeEnum.Green, true, true, new List<RoomAction> { new RoomAction("Analyse an Egg", true, AnalyseEgg),
+                                                                                                  new RoomAction("Analyse a Corpse", true, AnalyseCorpse),
+                                                                                                  new RoomAction("Analyse a Carcasse", true, AnalyseCarcasse)}),
             new RoomFunction("Nest", RoomTypeEnum.Special, true, true, new List<RoomAction> { new RoomAction("Steal an Egg", true, StealEgg) }),
             new RoomFunction("Storage", RoomTypeEnum.Red, true, true), //TODO Implement when inventory and objects are implemented
             new RoomFunction("Surgery", RoomTypeEnum.Green, true, true),

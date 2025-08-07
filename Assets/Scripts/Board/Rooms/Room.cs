@@ -295,7 +295,7 @@ namespace Board.Rooms
                 }
                 else if (_roomFunction.Name.EndsWith("B"))
                 {
-                    listPods = Ship.GetInstance().EscapePods.Where(p => p.PodNumber % 2 == 1).ToList();
+                    listPods = Ship.GetInstance().EscapePods.Where(p => p.PodNumber % 2 == 0).ToList();
                 }
                 else
                 {
